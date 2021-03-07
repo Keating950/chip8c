@@ -38,8 +38,10 @@ mod tests {
 
     #[test]
     fn test_comment() {
-        let parse_result = InstructionParser::parse(Rule::line, "se V0 01 # so is this");
-        dbg!(parse_result.unwrap());
+        let parse_result = InstructionParser::parse(Rule::line, "# this is a comment");
+        assert!(parse_result.is_ok());
+        let parse_result = InstructionParser::parse(Rule::inst, "se V0 01 # so is this");
+        assert!(parse_result.is_ok())
     }
 
 }
