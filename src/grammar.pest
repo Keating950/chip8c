@@ -3,37 +3,40 @@ COMMENT = _{ "#" ~ ANY*} // FIXME: this might break attempts to parse more than 
 
 digit = { '0'..'9' }
 hex_digit = { digit | 'A'..'F' | 'a'..'f'}
-binary_number = ${ "0b" ~ ("0" | "1")+ }
-octal_number = ${ "0" ~ ('0'..'7')+ }
-decimal_number = ${ digit+ }
+bin_number = ${ "0b" ~ ("0" | "1")+ }
+oct_number = ${ "0" ~ ('0'..'7')+ }
+dec_number = ${ digit+ }
 hex_number = ${ "0x" ~ hex_digit+ }
 
-immediate = ${ binary_number | octal_number | decimal_number | hex_number }
+immediate = ${ bin_number | hex_number | oct_number | dec_number }
 register = ${ ("V" | "v") ~ hex_digit }
-idx_register = {"I"}
-delay_timer = {"DT"}
-sound_timer = {"ST"}
+idx_register = @{"I" | "[I]"}
+delay_timer = @{"DT"}
+sound_timer = @{"ST"}
+keyboard = @{"K"}
+font = @{"F"}
+bcd = @{"B"}
 
-arg_special = { idx_register | delay_timer | sound_timer }
-argument = { immediate | register | arg_special }
+argument = { immediate | register | idx_register | delay_timer | sound_timer | keyboard | font | bcd }
 
 nullary_inst = { "cls" | "ret" }
-unary_immediate_inst = { ("sys" | "jp" | "call" ) ~ immediate }
-unary_reg_inst = { ("skp" | "sknp") ~ register }
-binary_reg_immediate_inst = { ("se" | "sne" | "add" | "jp" | "rnd") ~ register ~ immediate }
+unary_inst = { ("sys" | "jp" | "call" | "skp" | "sknp") ~ (register | immediate)}
+binary_reg_immediate_inst = { ("se" | "sne" | "jp" | "rnd") ~ register ~ immediate }
 binary_reg_reg_inst = { ("se" | "sne" | "add" | "jp" | "rnd") ~ register ~ register }
+
 variadic_inst = { ("shl" | "shr") ~ register{1,2}}
 draw_inst = {"drw" ~ register ~ register ~ immediate }
+add_inst = { "add" ~ ((register ~ (register | immediate)) | (idx_register ~ register)) }
 ld_inst = { "ld" ~ argument ~ argument }
 
 inst = {
     nullary_inst
-    | unary_immediate_inst
-    | unary_reg_inst
+    | unary_inst
     | binary_reg_immediate_inst
     | binary_reg_reg_inst
     | variadic_inst
     | draw_inst
+    | add_inst
     | ld_inst
 }
 
