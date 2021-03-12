@@ -1,7 +1,12 @@
 use crate::parser::{ParseInstructionError, Rule};
 use lazy_static::lazy_static;
 use pest::iterators::Pair;
-use std::{collections::HashMap, iter::FromIterator, num::ParseIntError, ops::BitOr};
+use std::{
+    collections::{HashMap, VecDeque},
+    iter::FromIterator,
+    num::ParseIntError,
+    ops::BitOr,
+};
 
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub struct Instruction {
@@ -32,23 +37,25 @@ macro_rules! bin_instruction {
 }
 
 impl Instruction {
-    pub fn from_pair(p: Pair<Rule>) -> Result<Instruction, ParseInstructionError> {
-        let rule = p.as_rule();
-        assert!(matches!(rule, Rule::inst));
-        let mut inner: Vec<Pair<Rule>> = p.into_inner().collect();
-        let code = Instruction::get_code(&inner);
-        let args: Result<Vec<Option<u16>>, ParseIntError> = inner
+    pub fn from_inst_pair(p: Pair<Rule>) -> Result<Instruction, ParseInstructionError> {
+        assert!(matches!(p.as_rule(), Rule::inst));
+        let mut parts: Vec<Pair<Rule>> = p.into_inner().nth(0).unwrap().into_inner().collect();
+        let mnemonic = parts[0].as_str();
+        let code = Instruction::get_code(mnemonic, &parts[1..]);
+        let args: Result<Vec<Option<u16>>, _> = parts
             .drain(1..)
             .enumerate()
             .map(|(pos, arg)| Instruction::parse_arg(arg, pos))
             .collect();
-        let arr = args?;
-        debug_assert!(arr.len() < 4);
-        Ok(Instruction { base: code, args: [arr[0], arr[1], arr[2]] })
+        let mut args_ok = args?;
+        args_ok.resize_with(3, || None);
+        Ok(Instruction {
+            base: code,
+            args: [args_ok[0], args_ok[1], args_ok[2]],
+        })
     }
 
     fn parse_arg(p: Pair<Rule>, pos: usize) -> Result<Option<u16>, ParseIntError> {
-        debug_assert!(matches!(p.as_rule(), Rule::argument));
         match p.as_rule() {
             Rule::immediate => {
                 let inner: Pair<Rule> = p.into_inner().nth(0).unwrap();
@@ -79,8 +86,7 @@ impl Instruction {
     }
 
 
-    fn get_code(elems: &[Pair<Rule>]) -> u16 {
-        debug_assert!(elems.len() >= 1);
+    fn get_code(mnemonic: &str, args: &[Pair<Rule>]) -> u16 {
         lazy_static! {
             static ref CODES: HashMap<&'static str, u16> = HashMap::from_iter(vec![
                 ("cls", 0x00E0),
@@ -99,17 +105,17 @@ impl Instruction {
                 ("drw", 0xD000),
             ]);
         }
-        if let Some(c) = CODES.get(&(elems[0].as_str())) {
+        if let Some(c) = CODES.get(mnemonic) {
             return *c;
         }
-        return match elems[0].as_str() {
-            "ld" => Instruction::match_ld(&elems[1], &elems[2]),
-            "add" => Instruction::match_ld(&elems[1], &elems[2]),
+        return match mnemonic {
+            "ld" => Instruction::match_ld_args(&args[0], &args[1]),
+            "add" => Instruction::match_add_args(&args[0], &args[1]),
             _ => unreachable!(),
         };
     }
 
-    fn match_ld(arg1: &Pair<Rule>, arg2: &Pair<Rule>) -> u16 {
+    fn match_ld_args(arg1: &Pair<Rule>, arg2: &Pair<Rule>) -> u16 {
         let (r1, r2) = (arg1.as_rule(), arg2.as_rule());
         debug_assert!(matches!(r1, Rule::argument) && matches!(r2, Rule::argument));
         match (arg1.as_rule(), arg2.as_rule()) {
@@ -128,7 +134,7 @@ impl Instruction {
         }
     }
 
-    fn match_add(arg1: &Pair<Rule>, arg2: &Pair<Rule>) -> u16 {
+    fn match_add_args(arg1: &Pair<Rule>, arg2: &Pair<Rule>) -> u16 {
         match (arg1.as_rule(), arg2.as_rule()) {
             (Rule::register, Rule::immediate) => 0x7000,
             (Rule::register, Rule::register) => 0x8004,
@@ -137,11 +143,62 @@ impl Instruction {
         }
     }
 
+    // FIXME
+    fn or_register(base: u16, pos: u32, reg: u16) -> u16 {
+        base | (reg << (12 - 4 * pos))
+    }
 
-    pub fn as_opcode(&self) -> u16 {
-        self.args
+    // FIXME
+    pub fn as_bytes(&self) -> (u8, u8) {
+        let code = self
+            .args
             .iter()
             .map(|arg| arg.unwrap_or(0))
-            .fold(self.base, u16::bitor)
+            .enumerate()
+            .fold(self.base, |base, (pos, arg)| {
+                Instruction::or_register(base, pos as u32, arg)
+            });
+        let b1 = (code & 0b1111111100000000) as u8;
+        let b2 = (code & 0x0F) as u8;
+        (b1, b2)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{instruction::Rule, InstructionParser};
+    use pest::Parser;
+
+    fn get_inst(ln: &str) -> Pair<Rule> {
+        InstructionParser::parse(Rule::inst, ln)
+            .unwrap()
+            .nth(0)
+            .unwrap()
+    }
+
+    fn run_test(lines: &[&str]) {
+        for ln in lines {
+            let pair: Pair<Rule> = get_inst(ln);
+            assert!(Instruction::from_inst_pair(pair).is_ok());
+        }
+    }
+
+    #[test]
+    fn test_nullary() {
+        let pair: Pair<Rule> = get_inst("cls");
+        let inst = Instruction::from_inst_pair(pair).unwrap();
+        let bytes = inst.as_bytes();
+        let opcode = ((bytes.0 as u16) << 8) & (bytes.1 as u16);
+        todo!();
+        // assert_eq!(opcode, 0x00E0);
+    }
+
+    #[test]
+    fn test_bin_reg_immediate() {
+        let pair: Pair<Rule> = get_inst("se v0 0x100");
+        let inst = Instruction::from_inst_pair(pair).unwrap();
+        let bytes = inst.as_bytes();
+        let opcode = ((bytes.0 as u16) << 8) & (bytes.1 as u16);
     }
 }

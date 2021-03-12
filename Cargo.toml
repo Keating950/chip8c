@@ -1,7 +1,9 @@
 [package]
 name = "chip8-compiler"
+description = "Compiles CHIP-8 assembly files to binary"
 version = "0.1.0"
 authors = ["Keating Reid <keating.reid@protonmail.com>"]
+license = "GPL-2.0-only"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -10,3 +12,4 @@ edition = "2018"
 pest = "2.1.3"
 pest_derive = "2.1.0"
 lazy_static = "1.4.0"
+clap = "2.33.3"
