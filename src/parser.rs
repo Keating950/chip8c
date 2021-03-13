@@ -39,11 +39,15 @@ impl fmt::Display for ParseInstructionError {
 impl std::error::Error for ParseInstructionError {}
 
 impl From<ParseIntError> for ParseInstructionError {
-    fn from(e: ParseIntError) -> Self { ParseInstructionError::BadArg(e) }
+    fn from(e: ParseIntError) -> Self {
+        ParseInstructionError::BadArg(e)
+    }
 }
 
 impl From<pest::error::Error<Rule>> for ParseInstructionError {
-    fn from(e: pest::error::Error<Rule>) -> Self { ParseInstructionError::BadInstruction(e) }
+    fn from(e: pest::error::Error<Rule>) -> Self {
+        ParseInstructionError::BadInstruction(e)
+    }
 }
 
 #[derive(Parser)]
@@ -52,10 +56,9 @@ pub struct InstructionParser;
 
 impl InstructionParser {
     pub fn parse_buffer(s: &str) -> Result<Vec<Instruction>, ParseInstructionError> {
-        let mut out = Vec::new();
+        let mut out = Vec::with_capacity(s.len() / 8); // rough estimate of chars per line
         for ln in s.lines() {
-            let lower = ln.to_ascii_lowercase();
-            let mut parsed: Pairs<'_, Rule> = InstructionParser::parse(Rule::line, &lower)?;
+            let mut parsed: Pairs<'_, Rule> = InstructionParser::parse(Rule::line, &ln)?;
             match parsed.nth(0) {
                 Some(inner) => match inner.as_rule() {
                     Rule::inst => out.push(Instruction::from_inst_pair(inner)?),
@@ -80,19 +83,29 @@ mod tests {
     }
 
     #[test]
-    fn test_nullary() { run_test(&["cls", "ret"]); }
+    fn test_nullary() {
+        run_test(&["cls", "ret"]);
+    }
 
     #[test]
-    fn test_unary() { run_test(&["jp 0x1000", "ret"]); }
+    fn test_unary() {
+        run_test(&["jp 0x1000", "ret"]);
+    }
 
     #[test]
-    fn test_reg_imm() { run_test(&["se v0 0x001", "sne v1 0x01"]); }
+    fn test_reg_imm() {
+        run_test(&["se v0 0x001", "sne v1 0x01"]);
+    }
 
     #[test]
-    fn test_comma() { run_test(&["se v0, 0x001", "sne, v1, 0x01"]); }
+    fn test_comma() {
+        run_test(&["se v0, 0x001", "sne, v1, 0x01"]);
+    }
 
     #[test]
-    fn test_bases() { run_test(&["se v0 0b1", "se v0 01", "se v0 1", "se v0 0x1"]); }
+    fn test_bases() {
+        run_test(&["se v0 0b1", "se v0 01", "se v0 1", "se v0 0x1"]);
+    }
 
     #[test]
     fn test_ld() {
@@ -113,7 +126,9 @@ mod tests {
     }
 
     #[test]
-    fn test_add() { run_test(&["add v0 v1", "add v0 0x1000", "add i v0"]) }
+    fn test_add() {
+        run_test(&["add v0 v1", "add v0 0x1000", "add i v0"])
+    }
 
     #[test]
     fn test_comment() {

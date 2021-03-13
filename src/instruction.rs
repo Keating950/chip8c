@@ -8,40 +8,34 @@ use std::{
     ops::BitOr,
 };
 
-#[derive(Debug, Hash, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Instruction {
     base: u16,
     args: [Option<u16>; 3],
 }
 
-#[macro_export]
-macro_rules! bin_instruction {
-    ($base:expr) => {
-        BinaryInstruction { base: $base, args: [None; 3] }
-    };
-    ($base:expr, $arg0:expr) => {
-        BinaryInstruction { base: $base, args: [Some($arg0), None, None] }
-    };
-    ($base:expr, $arg0:expr, $arg1:expr) => {
-        BinaryInstruction {
-            base: $base,
-            args: [Some($arg0), Some($arg1), None],
-        }
-    };
-    ($base:expr, $arg0:expr, $arg1:expr, $arg2:expr) => {
-        BinaryInstruction {
-            base: $base,
-            args: [Some($arg0), Some($arg1), Some($arg2)],
-        }
-    };
-}
-
 impl Instruction {
+    fn recurse_rule(p: Pair<Rule>) -> Vec<Pair<Rule>> {
+        match p.as_rule() {
+            Rule::line | Rule::inst => Instruction::recurse_rule(p.into_inner().nth(0).unwrap()),
+            Rule::nullary_inst => vec![p],
+            Rule::binary_inst
+            | Rule::variadic_inst
+            | Rule::draw_inst
+            | Rule::add_inst
+            | Rule::ld_inst => p.into_inner().collect(),
+            _ => unreachable!(),
+        }
+    }
+
     pub fn from_inst_pair(p: Pair<Rule>) -> Result<Instruction, ParseInstructionError> {
-        assert!(matches!(p.as_rule(), Rule::inst));
-        let mut parts: Vec<Pair<Rule>> = p.into_inner().nth(0).unwrap().into_inner().collect();
+        let mut parts = Instruction::recurse_rule(p);
         let mnemonic = parts[0].as_str();
-        let code = Instruction::get_code(mnemonic, &parts[1..]);
+        let code = if parts.len() > 1 {
+            Instruction::get_code(mnemonic, &parts[1..])
+        } else {
+            Instruction::get_code(mnemonic, &[])
+        };
         let args: Result<Vec<Option<u16>>, _> = parts
             .drain(1..)
             .enumerate()
@@ -69,17 +63,14 @@ impl Instruction {
                 let foo = u16::from_str_radix(inner.as_str().trim_start_matches(prefix), base)?;
                 Ok(Some(foo))
             }
-            Rule::register => {
-                let shift_amount = 12 - (4 * pos);
-                let arg = p
-                    .into_inner()
+            Rule::register => Ok(Some(
+                p.into_inner()
                     .nth(0)
                     .unwrap()
                     .as_str()
                     .trim_start_matches('v')
-                    .parse::<u16>()?;
-                Ok(Some(arg << shift_amount))
-            }
+                    .parse::<u16>()?,
+            )),
 
             _ => Ok(None), // special args are included in the base opcode
         }
@@ -143,24 +134,24 @@ impl Instruction {
         }
     }
 
-    // FIXME
     fn or_register(base: u16, pos: u32, reg: u16) -> u16 {
-        base | (reg << (12 - 4 * pos))
+        debug_assert!(pos < 3);
+        base | (reg << (8 - 4 * pos))
     }
 
-    // FIXME
-    pub fn as_bytes(&self) -> (u8, u8) {
-        let code = self
-            .args
+    pub fn as_opcode(&self) -> u16 {
+        self.args
             .iter()
             .map(|arg| arg.unwrap_or(0))
             .enumerate()
             .fold(self.base, |base, (pos, arg)| {
                 Instruction::or_register(base, pos as u32, arg)
-            });
-        let b1 = (code & 0b1111111100000000) as u8;
-        let b2 = (code & 0x0F) as u8;
-        (b1, b2)
+            })
+    }
+
+    pub fn as_bytes(&self) -> (u8, u8) {
+        let code = self.as_opcode();
+        (((code & 0xFF00) >> 8) as u8, (code & 0xFF) as u8)
     }
 }
 
@@ -184,21 +175,46 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_nullary() {
-        let pair: Pair<Rule> = get_inst("cls");
-        let inst = Instruction::from_inst_pair(pair).unwrap();
-        let bytes = inst.as_bytes();
-        let opcode = ((bytes.0 as u16) << 8) & (bytes.1 as u16);
-        todo!();
-        // assert_eq!(opcode, 0x00E0);
+    macro_rules! hex_assert_eq {
+        ($left:expr, $right:expr) => {
+            assert_eq!($left, $right, "\nleft: {:#x} \nright: {:#x}", $left, $right)
+        };
+        ($left:expr, $right:expr, $fmt:literal, $($args:expr)*) => {
+            assert_eq!($left, $right, concat!("\nleft: {:#x}\nright: {:#x}\n", $fmt), $left, $right, $($args)*)
+        }
+
+    }
+
+    fn test_opcodes(insts: &[(&str, u16)]) {
+        for (i, code) in insts {
+            let pair: Pair<Rule> = get_inst(i);
+            let inst = Instruction::from_inst_pair(pair).unwrap();
+            let bytes = inst.as_bytes();
+            let opcode = ((bytes.0 as u16) << 8) | (bytes.1 as u16);
+            if opcode != *code {
+                eprintln!()
+            }
+            hex_assert_eq!(opcode, *code);
+            hex_assert_eq!(opcode, inst.as_opcode(), "INSTRUCTION: {}", i);
+        }
     }
 
     #[test]
-    fn test_bin_reg_immediate() {
-        let pair: Pair<Rule> = get_inst("se v0 0x100");
-        let inst = Instruction::from_inst_pair(pair).unwrap();
-        let bytes = inst.as_bytes();
-        let opcode = ((bytes.0 as u16) << 8) & (bytes.1 as u16);
+    fn test_nullary() {
+        test_opcodes(&[("cls", 0x00E0), ("ret", 0x00EE)]);
+    }
+
+    #[test]
+    fn test_binary() {
+        test_opcodes(&[
+            ("se v7 0xFF", 0x37FF),
+            ("sne v7 0xFF", 0x47FF),
+            ("or v4 v5", 0x8451),
+        ]);
+    }
+
+    #[test]
+    fn test_draw() {
+        test_opcodes(&[("drw v1 v2 0xf", 0xD12F)]);
     }
 }

@@ -2,36 +2,36 @@ WHITESPACE = _{ " " | "\t" | "," }
 COMMENT = _{ "#" ~ ANY*} // FIXME: this might break attempts to parse more than one line at once
 
 digit = { '0'..'9' }
-hex_digit = { digit | 'a'..'f'}
+hex_digit = { digit | 'a'..'f' | 'A'..'F'}
 bin_number = ${ "0b" ~ ("0" | "1")+ }
 oct_number = ${ "0" ~ ('0'..'7')+ }
 dec_number = ${ digit+ }
 hex_number = ${ "0x" ~ hex_digit+ }
 
 immediate = ${ bin_number | hex_number | oct_number | dec_number }
-register = ${ "v" ~ hex_digit }
-idx_register = @{"i" | "[i]"}
-delay_timer = @{"dt"}
-sound_timer = @{"st"}
-keyboard = @{"k"}
-font = @{"f"}
-bcd = @{"b"}
+register = ${ ^"v" ~ hex_digit }
+idx_register = @{^"i" | ^"[i]"}
+delay_timer = @{^"dt"}
+sound_timer = @{^"st"}
+keyboard = @{^"k"}
+font = @{^"f"}
+bcd = @{^"b"}
 
 argument = { immediate | register | idx_register | delay_timer | sound_timer | keyboard | font | bcd }
 
-nullary_inst = ${ "cls" | "ret" }
-unary_mnemonic = ${ "sys" | "jp" | "call" | "skp" | "sknp" }
+nullary_inst = ${ ^"cls" | ^"ret" }
+unary_mnemonic = ${ ^"sys" | ^"jp" | ^"call" | ^"skp" | ^"sknp" }
 unary_inst = { unary_mnemonic ~ (register | immediate)}
-binary_mnemonic = ${ "se" | "sne" | "jp" | "rnd" }
+binary_mnemonic = ${ ^"se" | ^"sne" | ^"jp" | ^"rnd" }
 binary_inst = { binary_mnemonic ~ register ~ (register | immediate) }
 
-variadic_mnemonic = ${ "shl" | "shr" }
+variadic_mnemonic = ${ ^"shl" | ^"shr" }
 variadic_inst = {  variadic_mnemonic ~ register{1,2}}
-draw_mnemonic = ${ "drw" }
+draw_mnemonic = ${ ^"drw" }
 draw_inst = { draw_mnemonic ~ register ~ register ~ immediate }
-add_mnemonic = ${ "add" }
+add_mnemonic = ${ ^"add" }
 add_inst = { add_mnemonic ~ ((register ~ (register | immediate)) | (idx_register ~ register)) }
-ld_mnemonic = ${ "ld" }
+ld_mnemonic = ${ ^"ld" }
 ld_inst = { ld_mnemonic ~ argument ~ argument }
 
 inst = {
