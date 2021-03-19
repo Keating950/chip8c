@@ -14,7 +14,6 @@ use clap::{
     Arg,
 };
 use std::{
-    collections::VecDeque,
     fs::{self, File},
     io::{self, Write},
     mem,
@@ -26,42 +25,44 @@ type BoxResult<T> = Result<T, Box<dyn std::error::Error>>;
 
 macro_rules! die {
     ($msg:literal) => {{
-        eprintln!($msg);
+        eprintln!(concat!("ERROR: ", $msg));
         process::exit(1);
     }};
     ($msg:expr) => {{
-        eprintln!("{}", $msg);
+        eprintln!("ERROR: {}", $msg);
         process::exit(1);
     }};
 }
 
 fn main() {
-    let app = app_from_crate!()
+    let matches = app_from_crate!()
         .arg(
-            Arg::with_name("o")
+            Arg::with_name("--output")
+                .short("o")
                 .multiple(true)
                 .required(false)
-                .help(concat!(
-                "Outputs paths for input files. Because only single files are supported as compilation units,",
-                " Each argument passed to -o applies to the INPUT argument with the same index."))
+                .help(
+                "Output paths. Each argument to -o applies to the INPUT argument with the same index."
+                )
         )
         .arg(
             Arg::with_name("INPUT")
                     .multiple(true)
                     .required(true)
                     .help("Input files to compile"),
-            );
-    let matches = app.get_matches();
+            ).get_matches();
     let targets: Vec<&str> = matches.values_of("INPUT").unwrap().collect();
-    let mut output_paths: VecDeque<String> = matches
+    let mut output_paths: Vec<Option<PathBuf>> = matches
         .values_of("o")
         .unwrap_or(clap::Values::default())
-        .map(str::to_string)
+        .map(|s| Some(PathBuf::from(s)))
         .collect();
-    if output_paths.len() > targets.len() {
-        die!("ERROR: More output paths provided than input files");
-    }
-    for file in targets.iter() {
+    match output_paths.len() {
+        n if n < targets.len() => output_paths.resize_with(targets.len(), || None),
+        n if n > targets.len() => die!("More output paths provided than input files"),
+        _ => {}
+    };
+    for (file, output) in targets.iter().zip(output_paths) {
         let text = match fs::read_to_string(file) {
             Ok(s) => s,
             Err(e) => die!(e),
@@ -70,29 +71,28 @@ fn main() {
             Ok(s) => s,
             Err(e) => die!(e),
         };
-        let output = output_paths.pop_front().unwrap_or(gen_output_path(file));
-        match write_instructions(&instructions, &output) {
+        match write_instructions(&instructions, output.unwrap_or(gen_output_path(file)).as_path()) {
             Ok(()) => {}
             Err(e) => die!(e),
         }
     }
 }
 
-fn gen_output_path(input_path: &str) -> String {
+fn gen_output_path(input_path: &str) -> PathBuf {
     let buf = PathBuf::from(input_path);
     let base = buf.as_path().file_stem().unwrap_or(buf.as_os_str());
     let mut out = PathBuf::from(base);
     out.push(".ch8");
-    out.into_os_string().into_string().unwrap()
+    out
 }
 
-fn write_instructions(buf: &[Instruction], path: &str) -> io::Result<()> {
+fn write_instructions(buf: &[Instruction], path: &Path) -> io::Result<()> {
     let mut file = File::create(path)?;
     let bytes: Vec<u8> = buf.iter().map(Instruction::as_bytes).fold(
         Vec::with_capacity(buf.len()),
-        |mut vec, (b1, b2)| {
+        |mut vec, (b0, b1)| {
+            vec.push(b0);
             vec.push(b1);
-            vec.push(b2);
             vec
         },
     );
