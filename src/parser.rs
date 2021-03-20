@@ -1,27 +1,15 @@
 use crate::instruction::Instruction;
 use pest::{
-    iterators::{Pair, Pairs},
+    iterators::Pairs,
     Parser,
 };
 use pest_derive::*;
-use std::{fmt, hint, num::ParseIntError};
+use std::{fmt, num::ParseIntError};
 
 #[derive(Debug)]
 pub enum ParseInstructionError {
     BadInstruction(pest::error::Error<Rule>),
-    WrongNumberArgs,
     BadArg(ParseIntError),
-}
-
-type ParseResult = Result<u16, ParseInstructionError>;
-
-macro_rules! parse_err {
-    ($kind:tt) => {
-        Err(ParseInstructionError::$kind)
-    };
-    ($kind:tt, $val:expr) => {
-        Err(ParseInstructionError::$kind($val))
-    };
 }
 
 impl fmt::Display for ParseInstructionError {
@@ -29,8 +17,6 @@ impl fmt::Display for ParseInstructionError {
         match self {
             ParseInstructionError::BadInstruction(s) =>
                 write!(f, "Failed to parse {} as an instruction", s),
-            ParseInstructionError::WrongNumberArgs =>
-                write!(f, "Wrong number of aarguments provided to instruction"),
             ParseInstructionError::BadArg(e) => write!(f, "{}", e),
         }
     }

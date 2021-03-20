@@ -1,7 +1,7 @@
-#![allow(unused)]
-
+mod argument;
 mod instruction;
 mod parser;
+
 use crate::{instruction::Instruction, parser::InstructionParser};
 use clap::{
     app_from_crate,
@@ -9,19 +9,14 @@ use clap::{
     crate_description,
     crate_name,
     crate_version,
-    values_t,
-    App,
     Arg,
 };
 use std::{
     fs::{self, File},
     io::{self, Write},
-    mem,
     path::{Path, PathBuf},
     process,
 };
-
-type BoxResult<T> = Result<T, Box<dyn std::error::Error>>;
 
 macro_rules! die {
     ($msg:literal) => {{
@@ -71,7 +66,10 @@ fn main() {
             Ok(s) => s,
             Err(e) => die!(e),
         };
-        match write_instructions(&instructions, output.unwrap_or(gen_output_path(file)).as_path()) {
+        match write_instructions(
+            &instructions,
+            output.unwrap_or(gen_output_path(file)).as_path(),
+        ) {
             Ok(()) => {}
             Err(e) => die!(e),
         }

@@ -22,7 +22,7 @@ argument = { immediate | register | idx_register | delay_timer | sound_timer | k
 nullary_inst = ${ ^"cls" | ^"ret" }
 unary_mnemonic = ${ ^"sys" | ^"jp" | ^"call" | ^"skp" | ^"sknp" }
 unary_inst = { unary_mnemonic ~ (register | immediate)}
-binary_mnemonic = ${ ^"se" | ^"sne" | ^"jp" | ^"rnd" }
+binary_mnemonic = ${ ^"se" | ^"sne" | ^"jp" | ^"rnd" | ^"or" }
 binary_inst = { binary_mnemonic ~ register ~ (register | immediate) }
 
 variadic_mnemonic = ${ ^"shl" | ^"shr" }

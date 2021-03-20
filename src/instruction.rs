@@ -1,17 +1,18 @@
-use crate::parser::{ParseInstructionError, Rule};
+use crate::{
+    argument::Argument,
+    parser::{ParseInstructionError, Rule},
+};
 use lazy_static::lazy_static;
 use pest::iterators::Pair;
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::HashMap,
     iter::FromIterator,
-    num::ParseIntError,
-    ops::BitOr,
 };
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct Instruction {
     base: u16,
-    args: [Option<u16>; 3],
+    args: [Option<Argument>; 3],
 }
 
 impl Instruction {
@@ -36,46 +37,20 @@ impl Instruction {
         } else {
             Instruction::get_code(mnemonic, &[])
         };
-        let args: Result<Vec<Option<u16>>, _> = parts
-            .drain(1..)
-            .enumerate()
-            .map(|(pos, arg)| Instruction::parse_arg(arg, pos))
-            .collect();
-        let mut args_ok = args?;
-        args_ok.resize_with(3, || None);
+        let mut args: Vec<Option<Argument>> = parts.drain(1..).try_fold(
+            Vec::with_capacity(3),
+            |mut acc, elem| -> Result<Vec<Option<Argument>>, ParseInstructionError> {
+                let arg = Argument::from_pair(elem)?;
+                acc.push(Some(arg));
+                Ok(acc)
+            },
+        )?;
+        args.resize_with(3, || None);
         Ok(Instruction {
             base: code,
-            args: [args_ok[0], args_ok[1], args_ok[2]],
+            args: [args[0], args[1], args[2]],
         })
     }
-
-    fn parse_arg(p: Pair<Rule>, pos: usize) -> Result<Option<u16>, ParseIntError> {
-        match p.as_rule() {
-            Rule::immediate => {
-                let inner: Pair<Rule> = p.into_inner().nth(0).unwrap();
-                let (base, prefix) = match inner.as_rule() {
-                    Rule::hex_number => (16, "0x"),
-                    Rule::bin_number => (2, "0b"),
-                    Rule::oct_number => (8, "0"),
-                    Rule::dec_number => (10, ""),
-                    _ => unreachable!(),
-                };
-                let foo = u16::from_str_radix(inner.as_str().trim_start_matches(prefix), base)?;
-                Ok(Some(foo))
-            }
-            Rule::register => Ok(Some(
-                p.into_inner()
-                    .nth(0)
-                    .unwrap()
-                    .as_str()
-                    .trim_start_matches('v')
-                    .parse::<u16>()?,
-            )),
-
-            _ => Ok(None), // special args are included in the base opcode
-        }
-    }
-
 
     fn get_code(mnemonic: &str, args: &[Pair<Rule>]) -> u16 {
         lazy_static! {
@@ -87,67 +62,75 @@ impl Instruction {
                 ("call", 0x2000),
                 ("skp", 0xE09E),
                 ("sknp", 0xE0A1),
+                ("or", 0x8001),
                 ("shr", 0x8006),
                 ("shl", 0x800E),
                 ("se", 0x3000),
-                ("sne", 0x5000),
                 ("jp", 0xB000),
                 ("rnd", 0xC000),
                 ("drw", 0xD000),
             ]);
         }
-        if let Some(c) = CODES.get(mnemonic) {
-            return *c;
-        }
-        return match mnemonic {
-            "ld" => Instruction::match_ld_args(&args[0], &args[1]),
-            "add" => Instruction::match_add_args(&args[0], &args[1]),
-            _ => unreachable!(),
-        };
-    }
-
-    fn match_ld_args(arg1: &Pair<Rule>, arg2: &Pair<Rule>) -> u16 {
-        let (r1, r2) = (arg1.as_rule(), arg2.as_rule());
-        debug_assert!(matches!(r1, Rule::argument) && matches!(r2, Rule::argument));
-        match (arg1.as_rule(), arg2.as_rule()) {
-            (Rule::register, Rule::immediate) => 0x6000,
-            (Rule::register, Rule::register) => 0x8000,
-            (Rule::idx_register, Rule::immediate) => 0xA000,
-            (Rule::register, Rule::delay_timer) => 0xF007,
-            (Rule::register, Rule::keyboard) => 0xF00A,
-            (Rule::delay_timer, Rule::register) => 0xF015,
-            (Rule::sound_timer, Rule::register) => 0xF018,
-            (Rule::font, Rule::register) => 0xF029,
-            (Rule::bcd, Rule::register) => 0xF033,
-            (Rule::idx_register, Rule::register) => 0xF055,
-            (Rule::register, Rule::idx_register) => 0xF065,
-            _ => unreachable!(),
+        match CODES.get(mnemonic) {
+            Some(c) => *c,
+            None => Instruction::match_varying_args(mnemonic, &args[0], &args[1]),
         }
     }
 
-    fn match_add_args(arg1: &Pair<Rule>, arg2: &Pair<Rule>) -> u16 {
-        match (arg1.as_rule(), arg2.as_rule()) {
-            (Rule::register, Rule::immediate) => 0x7000,
-            (Rule::register, Rule::register) => 0x8004,
-            (Rule::idx_register, Rule::register) => 0xF01E,
+    fn match_varying_args(mnemonic: &str, arg1: &Pair<Rule>, arg2: &Pair<Rule>) -> u16 {
+        let arg_rules = (arg1.as_rule(), arg2.as_rule());
+        match mnemonic {
+            "ld" => match arg_rules {
+                (Rule::register, Rule::immediate) => 0x6000,
+                (Rule::register, Rule::register) => 0x8000,
+                (Rule::idx_register, Rule::immediate) => 0xA000,
+                (Rule::register, Rule::delay_timer) => 0xF007,
+                (Rule::register, Rule::keyboard) => 0xF00A,
+                (Rule::delay_timer, Rule::register) => 0xF015,
+                (Rule::sound_timer, Rule::register) => 0xF018,
+                (Rule::font, Rule::register) => 0xF029,
+                (Rule::bcd, Rule::register) => 0xF033,
+                (Rule::idx_register, Rule::register) => 0xF055,
+                (Rule::register, Rule::idx_register) => 0xF065,
+                _ => unreachable!(),
+            },
+            "add" => match arg_rules {
+                (Rule::register, Rule::immediate) => 0x7000,
+                (Rule::register, Rule::register) => 0x8004,
+                (Rule::idx_register, Rule::register) => 0xF01E,
+                _ => unreachable!(),
+            },
+            "se" => match arg_rules {
+                (Rule::register, Rule::immediate) => 0x3000,
+                (Rule::register, Rule::register) => 0x5000,
+                _ => unreachable!(),
+            },
+            "sne" => match arg_rules {
+                (Rule::register, Rule::immediate) => 0x4000,
+                (Rule::register, Rule::register) => 0x9000,
+                _ => unreachable!(),
+            },
             _ => unreachable!(),
         }
-    }
-
-    fn or_register(base: u16, pos: u32, reg: u16) -> u16 {
-        debug_assert!(pos < 3);
-        base | (reg << (8 - 4 * pos))
     }
 
     pub fn as_opcode(&self) -> u16 {
-        self.args
-            .iter()
-            .map(|arg| arg.unwrap_or(0))
-            .enumerate()
-            .fold(self.base, |base, (pos, arg)| {
-                Instruction::or_register(base, pos as u32, arg)
-            })
+        let mut base = self.base;
+        let shift = |pos, n| n << (4 * (3 - (pos + 1)));
+        for (i, arg_opt) in self.args.iter().enumerate() {
+            let arg = match arg_opt {
+                Some(val) => val,
+                None => break,
+            };
+            match arg.as_rule() {
+                Rule::register => base |= shift(i, arg.value().unwrap()),
+                Rule::immediate => base |= arg.value().unwrap(),
+                _ => ()
+            }
+        }
+        base
     }
+
 
     pub fn as_bytes(&self) -> (u8, u8) {
         let code = self.as_opcode();
@@ -166,13 +149,6 @@ mod tests {
             .unwrap()
             .nth(0)
             .unwrap()
-    }
-
-    fn run_test(lines: &[&str]) {
-        for ln in lines {
-            let pair: Pair<Rule> = get_inst(ln);
-            assert!(Instruction::from_inst_pair(pair).is_ok());
-        }
     }
 
     macro_rules! hex_assert_eq {
