@@ -1,5 +1,5 @@
 [package]
-name = "chip8-compiler"
+name = "chip8c"
 description = "Compiles CHIP-8 assembly files to binary"
 version = "0.1.0"
 authors = ["Keating Reid <keating.reid@protonmail.com>"]
