@@ -1,0 +1,7 @@
+edition = "2018"
+max_width = 100
+force_multiline_blocks = false
+match_arm_blocks = false
+single_line_if_else_max_width = 70
+struct_lit_width = 50
+imports_layout = "HorizontalVertical"

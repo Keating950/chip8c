@@ -3,14 +3,7 @@ mod instruction;
 mod parser;
 
 use crate::{instruction::Instruction, parser::InstructionParser};
-use clap::{
-    app_from_crate,
-    crate_authors,
-    crate_description,
-    crate_name,
-    crate_version,
-    Arg,
-};
+use clap::{app_from_crate, crate_authors, crate_description, crate_name, crate_version, Arg};
 use std::{
     fs::{self, File},
     io::{self, Write},

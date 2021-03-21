@@ -4,10 +4,7 @@ use crate::{
 };
 use lazy_static::lazy_static;
 use pest::iterators::Pair;
-use std::{
-    collections::HashMap,
-    iter::FromIterator,
-};
+use std::{collections::HashMap, iter::FromIterator};
 
 #[derive(Debug)]
 pub struct Instruction {
@@ -46,10 +43,7 @@ impl Instruction {
             },
         )?;
         args.resize_with(3, || None);
-        Ok(Instruction {
-            base: code,
-            args: [args[0], args[1], args[2]],
-        })
+        Ok(Instruction { base: code, args: [args[0], args[1], args[2]] })
     }
 
     fn get_code(mnemonic: &str, args: &[Pair<Rule>]) -> u16 {
@@ -127,7 +121,7 @@ impl Instruction {
             match arg.as_rule() {
                 Rule::register => base |= shift(i, arg.value().unwrap()),
                 Rule::immediate => base |= arg.value().unwrap(),
-                _ => ()
+                _ => {}
             }
         }
         base

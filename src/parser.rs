@@ -1,8 +1,5 @@
 use crate::instruction::Instruction;
-use pest::{
-    iterators::Pairs,
-    Parser,
-};
+use pest::{iterators::Pairs, Parser};
 use pest_derive::*;
 use std::{fmt, num::ParseIntError};
 
