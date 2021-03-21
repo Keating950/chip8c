@@ -1,10 +1,10 @@
 # chip8c
 
-chip8c compiles text files  of CHIP-8 assembly code to binaries runnable in an emulator.
+chip8c assembles text files  of CHIP-8 assembly code to binaries runnable in an emulator.
 
     chip8c 0.1.0
     Keating Reid <keating.reid@protonmail.com>
-    Compiles CHIP-8 assembly files to binary
+    Assembles CHIP-8 assembly files to binary
     
     USAGE:
         chip8c [FLAGS] <INPUT>...
