@@ -10,7 +10,8 @@ chip8c assembles text files  of CHIP-8 assembly code to binaries runnable in an 
         chip8c [FLAGS] <INPUT>...
     
     FLAGS:
-        -o               Output paths. Each argument to -o applies to the INPUT argument with the same index.
+        -o               Output paths. Each argument to -o applies to 
+                         the INPUT argument with the same index.
         -h, --help       Prints help information
         -V, --version    Prints version information
     
