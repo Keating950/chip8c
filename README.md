@@ -17,6 +17,8 @@ chip8c assembles text files  of CHIP-8 assembly code to binaries runnable in an 
     ARGS:
         <INPUT>...    Input files to compile
 
+For further information, consult the [project wiki](https://github.com/Keating950/chip8c/wiki).
+
 ## Arguments
 
 ### `-o`
