@@ -1,5 +1,5 @@
 WHITESPACE = _{ " " | "\t" | "," }
-COMMENT = _{ "#" ~ ANY*} // FIXME: this might break attempts to parse more than one line at once
+COMMENT = _{ ";" ~ ANY*} // FIXME: this might break attempts to parse more than one line at once
 
 digit = { '0'..'9' }
 hex_digit = { digit | 'a'..'f' | 'A'..'F'}
