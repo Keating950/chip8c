@@ -21,4 +21,6 @@ pub enum Error {
     DuplicateLabel(String),
     #[error("Io Error: {0}")]
     Io(#[from] std::io::Error),
+    #[error("Label '{0}' is not defined")]
+    UnresolvedLabel(String),
 }

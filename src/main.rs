@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+mod address;
 mod args;
 mod assembler;
 mod error;

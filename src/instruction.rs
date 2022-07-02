@@ -1,8 +1,12 @@
-use crate::{error::*, parser::Rule, register::Register};
+use crate::{
+    address::Address,
+    error::*,
+    parser::{parse_imm, Rule},
+    register::Register,
+};
 use pest::iterators::Pair;
-use std::num::ParseIntError;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Instruction {
     AddI {
         reg: Register,
@@ -20,7 +24,7 @@ pub enum Instruction {
         src: Register,
     },
     Call {
-        addr: u16,
+        addr: Address,
     },
     Cls,
     Drw {
@@ -29,10 +33,10 @@ pub enum Instruction {
         nibble: u8,
     },
     JpRel {
-        addr: u16,
+        addr: Address,
     },
     JpAbs {
-        addr: u16,
+        addr: Address,
     },
     LdBcd {
         reg: Register,
@@ -47,7 +51,7 @@ pub enum Instruction {
         reg: Register,
     },
     LdAddr {
-        addr: u16,
+        addr: Address,
     },
     LdReadDt {
         reg: Register,
@@ -115,7 +119,7 @@ pub enum Instruction {
         src: Register,
     },
     Sys {
-        addr: u16,
+        addr: Address,
     },
     Xor {
         dest: Register,
@@ -149,7 +153,7 @@ impl TryFrom<Pair<'_, Rule>> for Instruction {
                 src: inner.next().unwrap().try_into()?,
             }),
             call => Ok(Call {
-                addr: parse_imm(inner.next().unwrap())?,
+                addr: inner.next().unwrap().try_into()?,
             }),
             cls => Ok(Cls),
             drw => {
@@ -165,10 +169,10 @@ impl TryFrom<Pair<'_, Rule>> for Instruction {
                 }
             }
             jp_rel => Ok(JpRel {
-                addr: parse_imm(inner.next().unwrap())?,
+                addr: inner.next().unwrap().try_into()?,
             }),
             jp_abs => Ok(JpAbs {
-                addr: parse_imm(inner.next().unwrap())?,
+                addr: inner.next().unwrap().try_into()?,
             }),
             or => Ok(Or {
                 dest: inner.next().unwrap().try_into()?,
@@ -216,7 +220,7 @@ impl TryFrom<Pair<'_, Rule>> for Instruction {
                 src: inner.next().unwrap().try_into()?,
             }),
             sys => Ok(Sys {
-                addr: parse_imm(inner.next().unwrap())?,
+                addr: inner.next().unwrap().try_into()?,
             }),
             xor => Ok(Xor {
                 dest: inner.next().unwrap().try_into()?,
@@ -232,8 +236,8 @@ impl TryFrom<Pair<'_, Rule>> for Instruction {
             ld_sprite => Ok(LdSprite {
                 reg: inner.next().unwrap().try_into()?,
             }),
-            ld_i_imm => Ok(LdAddr {
-                addr: parse_imm(inner.next().unwrap())?,
+            ld_i_addr => Ok(LdAddr {
+                addr: inner.next().unwrap().try_into()?,
             }),
             ld_set_st => Ok(LdSetSt {
                 reg: inner.next().unwrap().try_into()?,
@@ -267,105 +271,54 @@ impl TryFrom<Pair<'_, Rule>> for Instruction {
 }
 
 impl Instruction {
-    pub fn to_bytes(self) -> [u8; 2] {
+    pub fn is_resolved(&self) -> bool {
         use Instruction::*;
         match self {
-            Sys { addr } => addr.to_be_bytes(),
+            Sys { addr } | Call { addr } | JpRel { addr } | JpAbs { addr } | LdAddr { addr } => {
+                addr.is_resolved()
+            }
+            _ => true,
+        }
+    }
+
+    pub fn as_bytes(&self) -> Result<[u8; 2]> {
+        use Instruction::*;
+        Ok(match self {
+            Sys { addr } => addr.to_resolved()?.to_be_bytes(),
             Cls => [0, 0xE0],
             Ret => [0, 0xEE],
-            JpAbs { addr } => (0x1000 | addr).to_be_bytes(),
-            Call { addr } => (0x2000 | addr).to_be_bytes(),
-            SeImm { reg, imm } => [0x30 | reg as u8, imm],
-            SneImm { reg, imm } => [0x40 | reg as u8, imm],
-            SeReg { reg0, reg1 } => [0x50 | reg0 as u8, (reg1 as u8) << 4],
-            LdImm { reg, imm } => [0x60 | reg as u8, imm],
-            AddImm { reg, imm } => [0x70 | reg as u8, imm],
-            LdReg { dest, src } => [0x80 | dest as u8, (src as u8) << 4],
-            Or { dest, src } => [0x80 | dest as u8, ((src as u8) << 4) + 1],
-            And { dest, src } => [0x80 | dest as u8, ((src as u8) << 4) + 2],
-            Xor { dest, src } => [0x80 | dest as u8, ((src as u8) << 4) + 3],
-            AddReg { dest, src } => [0x80 | dest as u8, ((src as u8) << 4) + 4],
-            Sub { dest, src } => [0x80 | dest as u8, ((src as u8) << 4) + 5],
-            Shr { reg } => [0x80 | reg as u8, 0x06],
-            SubN { dest, src } => [0x80 | dest as u8, ((src as u8) << 4) + 7],
-            Shl { reg } => [0x80 | reg as u8, 0x0E],
-            SneReg { reg0, reg1 } => [0x90 | reg0 as u8, (reg1 as u8) << 4],
-            LdAddr { addr } => (0xA000 | addr).to_be_bytes(),
-            JpRel { addr } => (0xB000 | addr).to_be_bytes(),
-            Rnd { reg, imm } => [0xC0 | reg as u8, imm],
-            Drw { x, y, nibble } => [0xD0 | x as u8, ((y as u8) << 4) | nibble],
-            Skp { reg } => [0xE0 | reg as u8, 0x9E],
-            Sknp { reg } => [0xE0 | reg as u8, 0xA1],
-            LdReadDt { reg } => [0xF0 | reg as u8, 0x07],
-            LdKey { reg } => [0xF0 | reg as u8, 0x0A],
-            LdSetDt { reg } => [0xF0 | reg as u8, 0x15],
-            LdSetSt { reg } => [0xF0 | reg as u8, 0x18],
-            AddI { reg } => [0xF0 | reg as u8, 0x1E],
-            LdSprite { reg } => [0xF0 | reg as u8, 0x29],
-            LdBcd { reg } => [0xF0 | reg as u8, 0x33],
-            LdRegDump { reg } => [0xF0 | reg as u8, 0x55],
-            LdRegRead { reg } => [0xF0 | reg as u8, 0x65],
-        }
-    }
-}
-
-trait ParseImm: Sized + Into<u16> + Copy {
-    fn from_str_radix(src: &str, radix: u32) -> std::result::Result<Self, ParseIntError>;
-}
-impl ParseImm for u8 {
-    fn from_str_radix(src: &str, radix: u32) -> std::result::Result<Self, ParseIntError> {
-        Self::from_str_radix(src, radix)
-    }
-}
-impl ParseImm for u16 {
-    fn from_str_radix(src: &str, radix: u32) -> std::result::Result<Self, ParseIntError> {
-        Self::from_str_radix(src, radix)
-    }
-}
-
-fn parse_imm<T: ParseImm>(p: Pair<'_, Rule>) -> Result<T> {
-    let (base, prefix) = match p.as_rule() {
-        Rule::imm => return parse_imm(p.into_inner().next().unwrap()),
-        Rule::hex_lit => (16, "0x"),
-        Rule::decimal_lit => (10, ""),
-        Rule::octal_lit => (8, "0"),
-        Rule::bin_lit => (2, "0b"),
-        other => {
-            return Err(Error::Internal(format!(
-                "Passed a pair with rule type {:?} to parse_imm",
-                other,
-            )));
-        }
-    };
-    let val =
-        T::from_str_radix(p.as_str().trim_start_matches(prefix), base).map_err(Error::NumParse)?;
-    if val.into() > 0x0FFF {
-        Err(Error::ExceedBounds(val.into(), 0x0FFF))
-    } else {
-        Ok(val)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_to_bytes() {
-        use Instruction::*;
-        let instructions = [
-            Or {
-                dest: Register::VA,
-                src: Register::VB,
-            },
-            And {
-                dest: Register::VA,
-                src: Register::VB,
-            },
-        ];
-        for inst in instructions {
-            let val = u16::from_be_bytes(inst.to_bytes());
-            println!("{:04X}", val);
-        }
+            JpAbs { addr } => (0x1000 | addr.to_resolved()?).to_be_bytes(),
+            Call { addr } => (0x2000 | addr.to_resolved()?).to_be_bytes(),
+            SeImm { reg, imm } => [0x30 | *reg as u8, *imm],
+            SneImm { reg, imm } => [0x40 | *reg as u8, *imm],
+            SeReg { reg0, reg1 } => [0x50 | *reg0 as u8, (*reg1 as u8) << 4],
+            LdImm { reg, imm } => [0x60 | *reg as u8, *imm],
+            AddImm { reg, imm } => [0x70 | *reg as u8, *imm],
+            LdReg { dest, src } => [0x80 | *dest as u8, (*src as u8) << 4],
+            Or { dest, src } => [0x80 | *dest as u8, ((*src as u8) << 4) + 1],
+            And { dest, src } => [0x80 | *dest as u8, ((*src as u8) << 4) + 2],
+            Xor { dest, src } => [0x80 | *dest as u8, ((*src as u8) << 4) + 3],
+            AddReg { dest, src } => [0x80 | *dest as u8, ((*src as u8) << 4) + 4],
+            Sub { dest, src } => [0x80 | *dest as u8, ((*src as u8) << 4) + 5],
+            Shr { reg } => [0x80 | *reg as u8, 0x06],
+            SubN { dest, src } => [0x80 | *dest as u8, ((*src as u8) << 4) + 7],
+            Shl { reg } => [0x80 | *reg as u8, 0x0E],
+            SneReg { reg0, reg1 } => [0x90 | *reg0 as u8, (*reg1 as u8) << 4],
+            LdAddr { addr } => (0xA000 | addr.to_resolved()?).to_be_bytes(),
+            JpRel { addr } => (0xB000 | addr.to_resolved()?).to_be_bytes(),
+            Rnd { reg, imm } => [0xC0 | *reg as u8, *imm],
+            Drw { x, y, nibble } => [0xD0 | *x as u8, ((*y as u8) << 4) | nibble],
+            Skp { reg } => [0xE0 | *reg as u8, 0x9E],
+            Sknp { reg } => [0xE0 | *reg as u8, 0xA1],
+            LdReadDt { reg } => [0xF0 | *reg as u8, 0x07],
+            LdKey { reg } => [0xF0 | *reg as u8, 0x0A],
+            LdSetDt { reg } => [0xF0 | *reg as u8, 0x15],
+            LdSetSt { reg } => [0xF0 | *reg as u8, 0x18],
+            AddI { reg } => [0xF0 | *reg as u8, 0x1E],
+            LdSprite { reg } => [0xF0 | *reg as u8, 0x29],
+            LdBcd { reg } => [0xF0 | *reg as u8, 0x33],
+            LdRegDump { reg } => [0xF0 | *reg as u8, 0x55],
+            LdRegRead { reg } => [0xF0 | *reg as u8, 0x65],
+        })
     }
 }

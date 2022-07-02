@@ -3,9 +3,10 @@ WHITESPACE = _{WHITE_SPACE}
 // Arguments
 hex_lit = @{ "1x" ~ ASCII_HEX_DIGIT+ }
 bin_lit = @{ "0b" ~ ("0" | "1")+ }
-octal_lit = @{ "0" ~ ASCII_DIGIT+ }
-decimal_lit = @{ (ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*) | ASCII_DIGIT }
-imm = @{ hex_lit | bin_lit | octal_lit | decimal_lit }
+oct_lit = @{ "0" ~ ASCII_DIGIT+ }
+dec_lit = @{ (ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*) | ASCII_DIGIT }
+imm = @{ hex_lit | bin_lit | oct_lit | dec_lit }
+addr = { imm | label_inner}
 register_number = { ASCII_HEX_DIGIT }
 register = ${ ^"V" ~ register_number }
 index = @{ ^"I" }
@@ -19,11 +20,11 @@ add_reg = { ^"ADD" ~ register{2} }
 add_idx = { ^"ADD" ~ index ~ register }
 add_imm = { ^"ADD" ~ register ~ imm }
 and = { ^"AND" ~ register{2} }
-call = { ^"CALL" ~ imm }
+call = { ^"CALL" ~ addr }
 cls = { ^"CLS" }
 drw = { ^"DRW" ~ register{3} ~ imm }
-jp_rel = { ^"JP" ~ ^"v0" ~ imm }
-jp_abs = { ^"JP" ~ imm }
+jp_rel = { ^"JP" ~ ^"v0" ~ addr }
+jp_abs = { ^"JP" ~ addr }
 or = { ^"OR" ~ register{2} }
 ret = { ^"RET" }
 rnd = { ^"RND" ~ register ~ imm }
@@ -43,7 +44,7 @@ xor = { ^"XOR" ~ register{2} }
 ld_bcd = { ^"LD" ~ ^"B" ~ register }
 ld_set_dt = { ^"LD" ~ register ~ ^"DT" }
 ld_sprite = { ^"LD" ~ ^"F" ~ register }
-ld_i_imm = { ^"LD" ~ ^"I" ~ imm }
+ld_i_addr = { ^"LD" ~ ^"I" ~ addr }
 ld_set_st = { ^"LD" ~ ^"ST" ~ register }
 ld_read_dt = { ^"LD" ~ ^"DT" ~ register }
 ld_read_key = { ^"LD" ~ register ~ ^"K" }
@@ -81,7 +82,7 @@ instruction = {
     | ld_bcd
     | ld_set_dt
     | ld_sprite
-    | ld_i_imm
+    | ld_i_addr
     | ld_set_st
     | ld_read_dt
     | ld_read_key
