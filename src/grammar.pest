@@ -1,0 +1,103 @@
+WHITESPACE = _{WHITE_SPACE}
+
+// Arguments
+hex_lit = @{ "1x" ~ ASCII_HEX_DIGIT+ }
+bin_lit = @{ "0b" ~ ("0" | "1")+ }
+octal_lit = @{ "0" ~ ASCII_DIGIT+ }
+decimal_lit = @{ (ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*) | ASCII_DIGIT }
+imm = @{ hex_lit | bin_lit | octal_lit | decimal_lit }
+register_number = { ASCII_HEX_DIGIT }
+register = ${ ^"V" ~ register_number }
+index = @{ ^"I" }
+sprite = { ^"F" }
+dt = { ^"DT" }
+st = { ^"ST" }
+key = { ^"K"}
+
+// Instructions
+add_reg = { ^"ADD" ~ register{2} }
+add_idx = { ^"ADD" ~ index ~ register }
+add_imm = { ^"ADD" ~ register ~ imm }
+and = { ^"AND" ~ register{2} }
+call = { ^"CALL" ~ imm }
+cls = { ^"CLS" }
+drw = { ^"DRW" ~ register{3} ~ imm }
+jp_rel = { ^"JP" ~ ^"v0" ~ imm }
+jp_abs = { ^"JP" ~ imm }
+or = { ^"OR" ~ register{2} }
+ret = { ^"RET" }
+rnd = { ^"RND" ~ register ~ imm }
+se = { ^"SE" ~ register{2} }
+se_imm = { ^"SE" ~ register ~ imm }
+shl = { ^"SHL" ~ register }
+shr = { ^"SHR" ~ register }
+sknp = { ^"SKNP" ~ register }
+skp = { ^"SKP" ~ register }
+sne = { ^"SNE" ~ register{2} }
+sne_imm = { ^"SNE" ~ register ~ imm }
+sub = { ^"SUB" ~ register{2} }
+subn = { ^"SUBN" ~ register{2} }
+sys = { ^"SYS" ~ imm }
+xor = { ^"XOR" ~ register{2} }
+// LD instructions
+ld_bcd = { ^"LD" ~ ^"B" ~ register }
+ld_set_dt = { ^"LD" ~ register ~ ^"DT" }
+ld_sprite = { ^"LD" ~ ^"F" ~ register }
+ld_i_imm = { ^"LD" ~ ^"I" ~ imm }
+ld_set_st = { ^"LD" ~ ^"ST" ~ register }
+ld_read_dt = { ^"LD" ~ ^"DT" ~ register }
+ld_read_key = { ^"LD" ~ register ~ ^"K" }
+ld_reg = { ^"LD" ~ register{2} }
+ld_i_reg = { ^"LD" ~ register ~ imm }
+ld_reg_dump = { ^"LD" ~ index ~ register }
+ld_reg_read = { ^"LD" ~ register ~ index }
+
+instruction = {
+  WHITESPACE* ~ (
+    add_reg
+    | add_idx
+    | add_imm
+    | and
+    | call
+    | cls
+    | drw
+    | jp_rel
+    | jp_abs
+    | or
+    | ret
+    | rnd
+    | se
+    | se_imm
+    | shl
+    | shr
+    | sknp
+    | skp
+    | sne
+    | sne_imm
+    | sub
+    | subn
+    | sys
+    | xor
+    | ld_bcd
+    | ld_set_dt
+    | ld_sprite
+    | ld_i_imm
+    | ld_set_st
+    | ld_read_dt
+    | ld_read_key
+    | ld_reg
+    | ld_i_reg
+    | ld_reg_dump
+    | ld_reg_read
+  )
+}
+
+// Labels
+label_first_char = _{ ASCII_ALPHA | "_" }
+label_valid_char = _{ label_first_char | ASCII_DIGIT }
+label_inner = @{ label_first_char ~ label_valid_char* }
+label = { WHITESPACE* ~ label_inner ~ ":" }
+
+elem = { label | instruction }
+prog = { elem+ }
+
