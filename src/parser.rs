@@ -10,11 +10,14 @@ pub struct Parser;
 
 impl Parser {
     pub fn parse(text: &str) -> Result<impl Iterator<Item = Pair<'_, Rule>>> {
-        <Parser as ParserTrait<Rule>>::parse(Rule::prog, text).map_err(|e| e.into())
+        Ok(<Parser as ParserTrait<Rule>>::parse(Rule::prog, text)?
+            .next()
+            .unwrap()
+            .into_inner())
     }
 }
 
-trait ParseImm: Sized + Into<u16> + Copy {
+pub trait ParseImm: Sized + Into<u16> + Copy {
     fn from_str_radix(src: &str, radix: u32) -> std::result::Result<Self, ParseIntError>;
 }
 impl ParseImm for u8 {

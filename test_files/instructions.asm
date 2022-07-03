@@ -1,0 +1,8 @@
+SE V0, V1
+SNE V0, V1
+SHL VF
+LD B, V9
+LD VA, DT
+LD DT, VA
+LD K, V0
+LD F, V0

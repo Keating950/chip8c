@@ -27,8 +27,11 @@ impl TryFrom<Pair<'_, Rule>> for Address {
 }
 
 impl Address {
-    pub fn is_resolved(&self) -> bool {
-        matches!(self, Address::Short(_))
+    pub fn label_value(&self) -> Option<&str> {
+        match self {
+            Address::Label(s) => Some(s.as_str()),
+            _ => None,
+        }
     }
 
     pub fn to_resolved(&self) -> Result<u16> {

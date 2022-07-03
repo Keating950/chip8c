@@ -271,13 +271,33 @@ impl TryFrom<Pair<'_, Rule>> for Instruction {
 }
 
 impl Instruction {
-    pub fn is_resolved(&self) -> bool {
+    pub fn unresolved_arg(&self) -> Option<&str> {
         use Instruction::*;
         match self {
             Sys { addr } | Call { addr } | JpRel { addr } | JpAbs { addr } | LdAddr { addr } => {
-                addr.is_resolved()
+                addr.label_value()
             }
-            _ => true,
+            _ => None,
+        }
+    }
+
+    pub fn resolve_arg(&mut self, val: u16) -> Result<()> {
+        use Instruction::*;
+        match self {
+            Sys { ref mut addr }
+            | Call { ref mut addr }
+            | JpRel { ref mut addr }
+            | JpAbs { ref mut addr }
+            | LdAddr { ref mut addr } => {
+                if addr.label_value().is_none() {
+                    return Err(Error::Internal(
+                        "Tried to resolve an already resolved Address".to_string(),
+                    ));
+                }
+                *addr = Address::Short(val);
+                Ok(())
+            }
+            _ => Ok(()),
         }
     }
 

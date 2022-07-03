@@ -1,4 +1,5 @@
-WHITESPACE = _{WHITE_SPACE}
+WHITESPACE = _{ !NEWLINE ~ WHITE_SPACE }
+EOF = { !ANY }
 
 // Arguments
 hex_lit = @{ "1x" ~ ASCII_HEX_DIGIT+ }
@@ -16,42 +17,42 @@ st = { ^"ST" }
 key = { ^"K"}
 
 // Instructions
-add_reg = { ^"ADD" ~ register{2} }
-add_idx = { ^"ADD" ~ index ~ register }
-add_imm = { ^"ADD" ~ register ~ imm }
-and = { ^"AND" ~ register{2} }
+add_reg = { ^"ADD" ~ register ~ "," ~ register }
+add_idx = { ^"ADD" ~ index ~ "," ~ register }
+add_imm = { ^"ADD" ~ register ~ "," ~ imm }
+and = { ^"AND" ~ register ~ "," ~ register }
 call = { ^"CALL" ~ addr }
 cls = { ^"CLS" }
-drw = { ^"DRW" ~ register{3} ~ imm }
-jp_rel = { ^"JP" ~ ^"v0" ~ addr }
+drw = { ^"DRW" ~ register ~ "," ~ register ~ "," ~ imm }
+jp_rel = { ^"JP" ~ ^"v0" ~ "," ~ addr }
 jp_abs = { ^"JP" ~ addr }
-or = { ^"OR" ~ register{2} }
+or = { ^"OR" ~ register ~ "," ~ register }
 ret = { ^"RET" }
-rnd = { ^"RND" ~ register ~ imm }
-se = { ^"SE" ~ register{2} }
-se_imm = { ^"SE" ~ register ~ imm }
+rnd = { ^"RND" ~ register ~ "," ~ imm }
+se = { ^"SE" ~ register ~ "," ~ register }
+se_imm = { ^"SE" ~ register ~ "," ~ imm }
 shl = { ^"SHL" ~ register }
 shr = { ^"SHR" ~ register }
 sknp = { ^"SKNP" ~ register }
 skp = { ^"SKP" ~ register }
-sne = { ^"SNE" ~ register{2} }
-sne_imm = { ^"SNE" ~ register ~ imm }
-sub = { ^"SUB" ~ register{2} }
-subn = { ^"SUBN" ~ register{2} }
+sne = { ^"SNE" ~ register ~ "," ~ register }
+sne_imm = { ^"SNE" ~ register ~ "," ~ imm }
+sub = { ^"SUB" ~ register ~ "," ~ register }
+subn = { ^"SUBN" ~ register ~ "," ~ register }
 sys = { ^"SYS" ~ imm }
-xor = { ^"XOR" ~ register{2} }
+xor = { ^"XOR" ~ register ~ "," ~ register }
 // LD instructions
-ld_bcd = { ^"LD" ~ ^"B" ~ register }
-ld_set_dt = { ^"LD" ~ register ~ ^"DT" }
-ld_sprite = { ^"LD" ~ ^"F" ~ register }
-ld_i_addr = { ^"LD" ~ ^"I" ~ addr }
-ld_set_st = { ^"LD" ~ ^"ST" ~ register }
-ld_read_dt = { ^"LD" ~ ^"DT" ~ register }
-ld_read_key = { ^"LD" ~ register ~ ^"K" }
-ld_reg = { ^"LD" ~ register{2} }
-ld_i_reg = { ^"LD" ~ register ~ imm }
-ld_reg_dump = { ^"LD" ~ index ~ register }
-ld_reg_read = { ^"LD" ~ register ~ index }
+ld_bcd = { ^"LD" ~ ^"B" ~ "," ~ register }
+ld_set_dt = { ^"LD" ~ register ~ "," ~ ^"DT" }
+ld_sprite = { ^"LD" ~ ^"F" ~ "," ~ register }
+ld_i_addr = { ^"LD" ~ ^"I" ~ "," ~ addr }
+ld_set_st = { ^"LD" ~ ^"ST" ~ "," ~ register }
+ld_read_dt = { ^"LD" ~ ^"DT" ~ "," ~ register }
+ld_read_key = { ^"LD" ~ register ~ "," ~ ^"K" }
+ld_reg = { ^"LD" ~ register ~ "," ~ register }
+ld_i_reg = { ^"LD" ~ register ~ "," ~ imm }
+ld_reg_dump = { ^"LD" ~ index ~ "," ~ register }
+ld_reg_read = { ^"LD" ~ register ~ "," ~ index }
 
 instruction = {
   WHITESPACE* ~ (
@@ -100,5 +101,5 @@ label_inner = @{ label_first_char ~ label_valid_char* }
 label = { WHITESPACE* ~ label_inner ~ ":" }
 
 elem = { label | instruction }
-prog = { elem+ }
+prog = { (elem ~ (NEWLINE | EOF))+ }
 
