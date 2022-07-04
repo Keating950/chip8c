@@ -10,7 +10,7 @@ pub struct Args {
         short = 'o',
         long = "--output"
     )]
-    pub output: PathBuf,
+    pub output: Option<PathBuf>,
 }
 
 impl Args {
