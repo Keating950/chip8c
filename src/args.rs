@@ -2,6 +2,7 @@ use clap::Parser;
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
+#[clap(about = env!("CARGO_PKG_DESCRIPTION"), version = env!("CARGO_PKG_VERSION"))]
 pub struct Args {
     #[clap(help = "File to compile", empty_values = false)]
     pub input: PathBuf,
