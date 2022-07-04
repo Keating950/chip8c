@@ -11,17 +11,6 @@ fn main() {
     println!("Hello, world!");
 }
 
-#[macro_export]
-macro_rules! static_assert {
-    ($cond:expr) => {{
-        #[allow(unused)]
-        const fn static_assertion() {
-            assert!($cond);
-        }
-        const _: () = static_assertion();
-    }};
-}
-
 #[cfg(test)]
 mod test_macros {
     #[macro_export]

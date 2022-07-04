@@ -1,4 +1,4 @@
-use crate::{error::*, parser::Rule, static_assert};
+use crate::{error::*, parser::Rule};
 use pest::iterators::Pair;
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -24,10 +24,12 @@ pub enum Register {
 impl TryFrom<u8> for Register {
     type Error = Error;
     fn try_from(value: u8) -> Result<Self> {
-        use std::mem;
-        static_assert!(mem::size_of::<Register>() == mem::size_of::<u8>());
+        use Register::*;
+        const REGISTERS: [Register; 16] = [
+            V0, V1, V2, V3, V4, V5, V6, V7, V8, V9, VA, VB, VC, VD, VE, VF,
+        ];
         if value <= 0xF {
-            Ok(unsafe { mem::transmute(value) })
+            Ok(REGISTERS[value as usize])
         } else {
             Err(Error::Internal(
                 "Could not convert u8 with value {value} to a Register".into(),
