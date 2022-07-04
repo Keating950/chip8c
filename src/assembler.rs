@@ -43,9 +43,9 @@ impl<'a> Assembler<'a> {
         Ok(asm)
     }
 
-    pub fn write_bin<T>(&self, mut dest: impl Write) -> Result<()> {
+    pub fn write_bin(&self, mut dest: impl Write) -> Result<()> {
         for inst in &self.instructions {
-            dest.write(&inst.as_bytes()?)?;
+            dest.write_all(&inst.as_bytes()?)?;
         }
         Ok(())
     }
