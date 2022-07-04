@@ -13,8 +13,6 @@ pub enum Error {
     ExceedBounds(u16, u16),
     #[error("Encountered internal error: {0}")]
     Internal(String),
-    #[error("Error: {:?} expected {1} argument(s), but found {2}")]
-    WrongNumArgs(Rule, usize, usize),
     #[error("Parse error: {0}")]
     NumParse(#[from] ParseIntError),
     #[error("Label '{0}' is defined twice")]
