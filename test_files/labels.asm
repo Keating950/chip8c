@@ -5,6 +5,6 @@ label0:
     LD B, V9
     LD VA, DT
     LD DT, VA
-    LD K, V0
+    LD V0, K
     LD F, V0
     JP label0

@@ -101,5 +101,5 @@ label_inner = @{ label_first_char ~ label_valid_char* }
 label = { WHITESPACE* ~ label_inner ~ ":" }
 
 elem = { label | instruction }
-prog = { (elem ~ (NEWLINE | EOF))+ }
+prog = { (elem ~ (NEWLINE | EOF))+ ~ EOF }
 
