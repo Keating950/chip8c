@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 mod address;
 mod args;
 mod assembler;
@@ -6,9 +5,30 @@ mod error;
 mod instruction;
 mod parser;
 mod register;
+use crate::{args::Args, assembler::Assembler, error::*, parser::Parser};
+use std::fs;
 
 fn main() {
-    println!("Hello, world!");
+    if let Err(e) = try_main() {
+        eprintln!("{e}");
+        std::process::exit(1)
+    }
+}
+
+fn try_main() -> Result<()> {
+    let args = Args::parse();
+    let text = fs::read_to_string(&args.input)?;
+    let asm = Assembler::build(Parser::parse(&text)?)?;
+    let output = match &args.output {
+        Some(p) => fs::OpenOptions::new().write(true).open(&p),
+        None => {
+            let mut out = args.input.clone();
+            out.set_extension("bin");
+            fs::OpenOptions::new().write(true).create(true).open(&out)
+        }
+    }?;
+    asm.write_bin(&output)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -28,7 +48,8 @@ mod test_macros {
 
 #[cfg(test)]
 mod tests {
-    use crate::{assembler::Assembler, assert_ok, parser::Parser};
+    use super::*;
+    use crate::assert_ok;
 
     #[test]
     fn test_assemble() {
@@ -46,7 +67,7 @@ mod tests {
                 }
             };
             let asm = assert_ok!(Assembler::build(parsed));
-            assert_ok!(asm.write_bin::<&mut Vec<u8>>(&mut dest));
+            assert_ok!(asm.write_bin(&mut dest));
             dest.clear();
         }
     }
