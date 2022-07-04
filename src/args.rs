@@ -4,7 +4,7 @@ use std::path::PathBuf;
 #[derive(Debug, Parser)]
 pub struct Args {
     #[clap(help = "File to compile", empty_values = false)]
-    pub file: PathBuf,
+    pub input: PathBuf,
     #[clap(
         help = "Output path. Defaults to [input path].bin",
         short = 'o',
