@@ -23,6 +23,9 @@ impl<'a> Assembler<'a> {
             labels: Default::default(),
         };
         for p in pairs {
+            if p.as_rule() == Rule::EOF {
+                break;
+            }
             match asm.parse_item(p)? {
                 Item::Inst(inst) => asm.instructions.push(inst),
                 Item::Label(lbl) => {
