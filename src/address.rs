@@ -14,10 +14,11 @@ impl TryFrom<Pair<'_, Rule>> for Address {
     type Error = Error;
     fn try_from(value: Pair<'_, Rule>) -> Result<Self> {
         match value.as_rule() {
-            Rule::addr => Address::try_from(value.into_inner().next().unwrap()),
+            Rule::addr | Rule::label => Address::try_from(value.into_inner().next().unwrap()),
             Rule::imm | Rule::hex_lit | Rule::dec_lit | Rule::oct_lit | Rule::bin_lit => {
                 Ok(Address::Short(parse_imm(value)?))
             }
+            Rule::label_inner => Ok(Address::Label(value.as_str().to_string())),
             other => Err(Error::Internal(format!(
                 "Cannot parse an Address from a Pair with Rule {:?}",
                 other
